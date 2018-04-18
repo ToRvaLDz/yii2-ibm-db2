@@ -124,7 +124,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
     /**
      * @inheritdoc
      */
-    public function buildOrderByAndLimit($sql, $orderBy, $limit, $offset)
+/*    public function buildOrderByAndLimit($sql, $orderBy, $limit, $offset)
     {
         $orderByStatment = $this->buildOrderBy($orderBy);
 
@@ -138,12 +138,12 @@ class QueryBuilder extends \yii\db\QueryBuilder
             }
         }
         return $sql;
-    }
+    }*/
 
     /**
      * @inheritdoc
      */
-    public function buildLimit($limit, $offset)
+/*    public function buildLimit($limit, $offset)
     {
         if (!$this->hasLimit($limit) && !$this->hasOffset($offset)) {
             return '';
@@ -158,7 +158,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
         $limitOffsetStatment = str_replace(':limit', $replacement, $limitOffsetStatment);
 
         return $limitOffsetStatment;
-    }
+    }*/
 
     /**
      * @inheritdoc
