@@ -22,17 +22,16 @@ use yii\db\Transaction;
 class Schema extends \yii\db\Schema
 {
 
-
     public $typeMap = [
-        'character'  => self::TYPE_STRING,
+        'character'  => self::TYPE_CHAR,
         'varchar'    => self::TYPE_STRING,
-        'char'       => self::TYPE_STRING,
+        'char'       => self::TYPE_CHAR,
         'clob'       => self::TYPE_TEXT,
         'graphic'    => self::TYPE_STRING,
         'vargraphic' => self::TYPE_STRING,
         'varg'       => self::TYPE_STRING,
         'dbclob'     => self::TYPE_TEXT,
-        'nchar'      => self::TYPE_STRING,
+        'nchar'      => self::TYPE_CHAR,
         'nvarchar'   => self::TYPE_STRING,
         'nclob'      => self::TYPE_TEXT,
         'binary'     => self::TYPE_BINARY,
@@ -54,24 +53,6 @@ class Schema extends \yii\db\Schema
         'timestamp'  => self::TYPE_TIMESTAMP,
         'timestmp'   => self::TYPE_TIMESTAMP
     ];
-
-   /* public $_isIseries = null;
-
-    public function isISeries() {
-        if ($this->_isIseries !== null) {
-            return $this->_isIseries;
-        }
-        try {
-            $sql = "SELECT * FROM QSYS2.SYSTABLES FETCH FIRST 1 ROW ONLY";
-            $command = $this->db->createCommand($sql);
-            $stmt = $command->execute();
-            $this->_isIseries = (bool) $stmt;
-            return $this->_isIseries;
-        } catch (Exception $ex) {
-            $this->_isIseries = false;
-            return $this->_isIseries;
-        }
-    }*/
 
    /**
      * @inheritdoc
@@ -457,6 +438,15 @@ SQL;
         return $command->queryColumn();
     }
     
+    /**
+     * Creates a new savepoint.
+     * @param string $name the savepoint name
+     */
+    public function createSavepoint($name)
+    {
+        $this->db->createCommand("SAVEPOINT $name ON ROLLBACK RETAIN CURSORS")->execute();
+    }
+
     /**
      * Sets the isolation level of the current transaction.
      * @param string $level The transaction isolation level to use for this transaction.

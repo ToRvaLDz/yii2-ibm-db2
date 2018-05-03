@@ -18,10 +18,15 @@ class Connection extends \yii\db\Connection
 {
 
     /**
-     * @var bool set to true if working on iSeries
+     * @inheritdoc
+     */
+    public $commandClass = 'edgardmessias\db\ibm\db2\Command';
+
+    /**
+     * @var bool|null set to true if working on iSeries
      */
 
-    public $isISeries;
+    public $isISeries = null;
 
 
     /**
@@ -58,20 +63,29 @@ class Connection extends \yii\db\Connection
     ];
     
     /**
-     * Creates a command for execution.
-     * @param string $sql the SQL statement to be executed
-     * @param array $params the parameters to be bound to the SQL statement
-     * @return Command the DB command
+     * Initializes the DB connection.
+     * This method is invoked right after the DB connection is established.
+     * The default implementation turns on `PDO::ATTR_EMULATE_PREPARES`
+     * if [[emulatePrepare]] is true, and sets the database [[charset]] if it is not empty.
+     * It then triggers an [[EVENT_AFTER_OPEN]] event.
      */
-    public function createCommand($sql = null, $params = [])
+    protected function initConnection()
     {
-        $command = new Command([
-            'db' => $this,
-            'sql' => $sql,
-        ]);
+        parent::initConnection();
 
-        return $command->bindValues($params);
+        if($this->isISeries === null){
+            try {
+                $stmt = $this->pdo->query('SELECT * FROM QSYS2.SYSTABLES FETCH FIRST 1 ROW ONLY');
+                $this->isISeries = boolval($stmt);
+            } catch (\Exception $ex) {
+                $this->isISeries = false;
+            }
+        }
+
+        if($this->defaultSchema && !$this->isISeries){
+            $this->pdo->exec('SET CURRENT SCHEMA ' . $this->pdo->quote($this->defaultSchema));
+        }
+        
     }
 
-    
 }

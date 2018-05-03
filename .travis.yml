@@ -2,8 +2,29 @@ language: php
 
 php:
   - 5.4
+  - 5.5
+  - 5.6
+  - 7.0
+  - 7.1
+  - 7.2
+  - nightly
+
+matrix:
+  fast_finish: true
+  allow_failures:
+    - php: 7.0
+    - php: 7.1
+    - php: 7.2
+    - php: nightly
 
 sudo: true
+dist: trusty
+
+# cache composer dirs
+cache:
+  directories:
+    - $HOME/.composer/cache
+    - $HOME/download
 
 before_install:
   # Parallel download
@@ -11,26 +32,29 @@ before_install:
   - sudo apt-get install aria2 curl -y
 
   # Retrieves and extracts the DB2 binaries
-  - travis_retry export DOWNLOAD_LINK=$(phantomjs --ssl-protocol=tlsv1 ./tests/ci/travis/download.js | tail -1 | grep http)
+  - if [ ! -d $HOME/download ]; then mkdir $HOME/download; fi
+  - DOWNLOAD_FILE=v11.1_linuxx64_expc.tar.gz
+  - if [ ! -f $HOME/download/${DOWNLOAD_FILE} ]; then travis_retry export DOWNLOAD_LINK=$(phantomjs --ssl-protocol=tlsv1 ${TRAVIS_BUILD_DIR}/tests/ci/travis/download.js | tail -1 | grep http); fi
+  - if [ ! -f $HOME/download/${DOWNLOAD_FILE} ]; then travis_retry aria2c -x 16 -d $HOME/download -o ${DOWNLOAD_FILE} ${DOWNLOAD_LINK}; fi
+  - cp $HOME/download/${DOWNLOAD_FILE} /tmp
   - cd /tmp
-  - travis_retry aria2c -x 16 ${DOWNLOAD_LINK}
-  - DOWNLOAD_FILE=$(ls *.tar.gz)
   - tar zxvf ${DOWNLOAD_FILE}
 
   # INSTALL
   # Install the required libraries
-  - sudo apt-get install libaio1 lib32stdc++6 -y
+  - sudo apt-get install rpm libaio1 lib32stdc++6 linux-source build-essential binutils -y
   - sudo apt-get install -qq libpam-ldap:i386
   - sudo ln -s /lib/i386-linux-gnu/libpam.so.0 /lib/libpam.so.0
 
   # Checks the prerequisites
-  - cd /tmp/expc ; ./db2prereqcheck -l
+  - cd /tmp/expc ; ./db2prereqcheck -l || echo invalid
   # Install DB2 and creates an instance (Response file)
   - sudo ./db2setup -r  ${TRAVIS_BUILD_DIR}/tests/ci/travis/db2.rsp
   # Create user
   - sudo useradd test
   - echo "test:test" | sudo chpasswd
   # Changes the security
+  - export DB2INSTANCE=db2inst1
   - sudo usermod -a -G db2iadm1 test
   - sudo chsh -s /bin/bash db2inst1
   - sudo su - db2inst1 -c "db2 update dbm cfg using SYSADM_GROUP db2iadm1 ; db2stop ; db2start"
@@ -39,17 +63,39 @@ before_install:
   
   # Install pdo_ibm
   - export DB2DIR=/home/db2inst1/sqllib
-  - git clone https://git.php.net/repository/pecl/database/pdo_ibm.git
+  - (mkdir pdo_ibm; cd pdo_ibm/; curl https://pecl.php.net/get/PDO_IBM -o pdo_ibm.tar.gz; tar -zxvf pdo_ibm.tar.gz --strip 1)
+  - ([[ "$TRAVIS_PHP_VERSION" == 7.* ]] && cd pdo_ibm/ && patch < ${TRAVIS_BUILD_DIR}/tests/ci/travis/php7.patch || echo "Not patched")
   - (cd pdo_ibm/; phpize && ./configure --with-pdo-ibm=${DB2DIR} && make && sudo make install)
 
 install:
   - cd ${TRAVIS_BUILD_DIR}
+  #enabling pdo_ibm
   - echo "extension=pdo_ibm.so" >> ~/.phpenv/versions/$(phpenv version-name)/etc/php.ini
   - php -m | grep -i pdo
+
+  #preparing Yii2 environment
   - travis_retry composer self-update && composer --version
-  - travis_retry composer global require "fxp/composer-asset-plugin:~1.0.0" --prefer-dist --no-interaction
+  - travis_retry composer global require "fxp/composer-asset-plugin:~1.4" --prefer-dist --no-interaction
   - export PATH="$HOME/.composer/vendor/bin:$PATH"
+
+  #installing composer dependency
   - travis_retry composer install --prefer-dist --no-interaction
+  #needed to use tests of Yii2
+  - rm vendor/yiisoft/yii2-dev -Rf
+  - travis_retry composer install --prefer-source -o --no-interaction
+
+before_script:
+  - |
+    if [ $TRAVIS_PHP_VERSION = '5.6' ]; then
+      PHPUNIT_FLAGS="--coverage-clover=coverage.clover"
+    fi
 
 script:
-  - phpunit -v
+  - vendor/bin/phpunit --verbose $PHPUNIT_FLAGS
+
+after_script:
+  - |
+    if [ $TRAVIS_PHP_VERSION = '5.6' ]; then
+      travis_retry wget https://scrutinizer-ci.com/ocular.phar
+      php ocular.phar code-coverage:upload --format=php-clover coverage.clover
+    fi
