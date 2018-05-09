@@ -164,7 +164,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
     /**
      * @inheritdoc
      */
-    public function buildLimit($limit, $offset)
+  /*  public function buildLimit($limit, $offset)
     {
         if (!$this->hasLimit($limit) && !$this->hasOffset($offset)) {
             return '';
@@ -179,7 +179,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
         $limitOffsetStatment = str_replace(':limit', $replacement, $limitOffsetStatment);
 
         return $limitOffsetStatment;
-    }
+    }*/
 
     /**
      * @inheritdoc
